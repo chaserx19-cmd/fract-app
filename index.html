@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Decimal ↔ Fraction</title>
 
-  <!-- iOS home-screen “app” niceties -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Fraction">
   <meta name="theme-color" content="#111111">
@@ -20,11 +19,8 @@
       line-height: 1.2;
       -webkit-text-size-adjust: 100%;
     }
-    h1{
-      margin: 0 0 14px 0;
-      font-size: 22px;
-      opacity: .9;
-    }
+    h1{ margin: 0 0 14px 0; font-size: 22px; opacity: .9; }
+
     .row{
       display:flex;
       gap: 12px;
@@ -40,12 +36,9 @@
       border: 1px solid rgba(127,127,127,.35);
       outline: none;
     }
-    .group{
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
+
+    .group{ display:flex; gap: 10px; flex-wrap:wrap; align-items:center; }
+
     .btn{
       font-size: 18px;
       padding: 12px 14px;
@@ -55,11 +48,26 @@
       cursor: pointer;
       user-select: none;
       touch-action: manipulation;
+      transition: background-color .12s ease, border-color .12s ease, transform .06s ease;
     }
+    .btn:active{ transform: scale(0.98); }
+
+    /* Full-button selected state */
     .btn.active{
       border-width: 2px;
-      font-weight: 700;
+      font-weight: 800;
+      background: rgba(127,127,127,.22);
+      border-color: rgba(127,127,127,.55);
     }
+
+    /* Make selected state more obvious in light mode */
+    @media (prefers-color-scheme: light) {
+      .btn.active{
+        background: rgba(0,0,0,.10);
+        border-color: rgba(0,0,0,.25);
+      }
+    }
+
     .card{
       margin-top: 16px;
       padding: 16px;
@@ -84,35 +92,23 @@
       gap: 10px;
       font-size: 16px;
     }
-    .line{
-      display:flex;
-      justify-content:space-between;
-      gap: 14px;
-    }
+    .line{ display:flex; justify-content:space-between; gap: 14px; }
     .k{ opacity:.75; }
     .v{ font-variant-numeric: tabular-nums; }
-    .muted{
-      margin-top: 14px;
-      opacity:.7;
-      font-size: 14px;
-    }
-    .err{ color:#d33; font-size: 15px; margin-top: 10px; }
-    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .muted{ margin-top: 14px; opacity:.7; font-size: 14px; }
   </style>
 </head>
 <body>
   <h1>Decimal → Fraction</h1>
 
   <div class="row">
-    <input id="val" placeholder="Type a number… e.g. 2.375 or 25.4" autocomplete="off" />
+    <input id="val" placeholder="Type a number… e.g. 14.611 or 25.4" autocomplete="off" />
 
-    <!-- Unit toggle -->
     <div class="group" aria-label="Units">
       <button class="btn active" id="uIn" type="button">IN</button>
       <button class="btn" id="uMm" type="button">MM</button>
     </div>
 
-    <!-- Denominator (tolerance) -->
     <div class="group" id="denoms" aria-label="Tolerance"></div>
   </div>
 
@@ -121,11 +117,9 @@
 
     <div class="copyrow">
       <button class="btn" id="copyFrac" type="button">Copy fraction</button>
-      <button class="btn" id="copyDecIn" type="button">Copy decimal in</button>
-      <button class="btn" id="copyDecMm" type="button">Copy decimal mm</button>
+      <button class="btn" id="copyDecIn" type="button">Copy decimal in (rounded)</button>
+      <button class="btn" id="copyDecMm" type="button">Copy decimal mm (rounded)</button>
     </div>
-
-    <div id="err" class="err" style="display:none;"></div>
 
     <div class="meta">
       <div class="line"><div class="k">Decimal inches (exact)</div><div class="v" id="decIn">—</div></div>
@@ -135,13 +129,13 @@
 
     <div class="muted">
       Denominator sets tolerance (nearest 1/16, 1/32, 1/64, 1/128). Output is fractional inches.
+      Copy buttons use <b>3 decimals</b>. Decimal copy uses the <b>rounded</b> value that matches the fraction.
     </div>
   </div>
 
 <script>
   const elVal   = document.getElementById('val');
   const elOut   = document.getElementById('out');
-  const elErr   = document.getElementById('err');
   const elDecIn = document.getElementById('decIn');
   const elDecMm = document.getElementById('decMm');
   const elDelta = document.getElementById('delta');
@@ -152,9 +146,7 @@
 
   const denoms = [16, 32, 64, 128];
   let denom = 32;
-
-  // Units state: 'in' or 'mm'
-  let units = 'in';
+  let units = 'in'; // 'in' or 'mm'
 
   function gcd(a, b){
     a = Math.abs(a); b = Math.abs(b);
@@ -165,15 +157,11 @@
   function parseNumber(raw){
     const s = (raw || '').trim();
     if (!s) return { ok:false, err:'Type a number.' };
-
-    // allow commas/spaces casually
     const cleaned = s.replace(/,/g,'');
     const m = cleaned.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
     if (!m) return { ok:false, err:'Could not find a number.' };
-
     const num = Number(m[0]);
     if (!Number.isFinite(num)) return { ok:false, err:'Invalid number.' };
-
     return { ok:true, num };
   }
 
@@ -196,13 +184,8 @@
 
   function setUnits(next){
     units = next;
-    if (units === 'in') {
-      btnIn.classList.add('active');
-      btnMm.classList.remove('active');
-    } else {
-      btnMm.classList.add('active');
-      btnIn.classList.remove('active');
-    }
+    btnIn.classList.toggle('active', units === 'in');
+    btnMm.classList.toggle('active', units === 'mm');
     update();
   }
 
@@ -216,59 +199,74 @@
       b.type = 'button';
       b.className = 'btn' + (d === denom ? ' active' : '');
       b.textContent = `1/${d}`;
-      b.addEventListener('click', () => { denom = d; renderDenoms(); update(); });
+      b.addEventListener('click', () => {
+        denom = d;
+        renderDenoms();
+        update();
+      });
       elDenoms.appendChild(b);
     }
   }
 
+  // Copy helpers
   async function copyText(t){
-    try { await navigator.clipboard.writeText(t); }
-    catch { /* iOS may block in some contexts */ }
+    try { await navigator.clipboard.writeText(t); } catch {}
+  }
+  function toFixed3(n){
+    // Avoid "-0.000"
+    const v = Number(n.toFixed(3));
+    return v.toFixed(3);
   }
 
-  let last = { frac:'', decIn:'', decMm:'' };
+  let last = {
+    frac: '',
+    roundedIn: NaN,
+    roundedMm: NaN
+  };
 
   document.getElementById('copyFrac').addEventListener('click', () => copyText(last.frac));
-  document.getElementById('copyDecIn').addEventListener('click', () => copyText(last.decIn));
-  document.getElementById('copyDecMm').addEventListener('click', () => copyText(last.decMm));
+  document.getElementById('copyDecIn').addEventListener('click', () => {
+    if (Number.isFinite(last.roundedIn)) copyText(toFixed3(last.roundedIn));
+  });
+  document.getElementById('copyDecMm').addEventListener('click', () => {
+    if (Number.isFinite(last.roundedMm)) copyText(toFixed3(last.roundedMm));
+  });
 
   function update(){
     const p = parseNumber(elVal.value);
 
     if (!p.ok){
       elOut.textContent = '—';
-      elErr.style.display = 'none';
       elDecIn.textContent = '—';
       elDecMm.textContent = '—';
       elDelta.textContent = '—';
-      last = { frac:'', decIn:'', decMm:'' };
+      last = { frac:'', roundedIn: NaN, roundedMm: NaN };
       return;
     }
 
     const raw = p.num;
-    const inches = (units === 'mm') ? (raw / 25.4) : raw;
-    const mm = inches * 25.4;
+    const inchesExact = (units === 'mm') ? (raw / 25.4) : raw;
+    const mmExact = inchesExact * 25.4;
 
-    const frac = formatMixedFractionFromInches(inches, denom);
+    const frac = formatMixedFractionFromInches(inchesExact, denom);
+    const inchesRounded = frac.rounded;
+    const mmRounded = inchesRounded * 25.4;
 
     elOut.textContent = frac.text;
-    elDecIn.textContent = inches.toFixed(6) + ' in';
-    elDecMm.textContent = mm.toFixed(3) + ' mm';
+    elDecIn.textContent = inchesExact.toFixed(6) + ' in';
+    elDecMm.textContent = mmExact.toFixed(3) + ' mm';
 
-    const deltaIn = frac.rounded - inches;
+    const deltaIn = inchesRounded - inchesExact;
     const deltaMm = deltaIn * 25.4;
     const sign = deltaIn >= 0 ? '+' : '';
     elDelta.textContent = `${sign}${deltaIn.toFixed(6)} in  (${sign}${deltaMm.toFixed(3)} mm)`;
 
-    // Values to copy (no quotes)
+    // What gets copied:
     last = {
       frac: frac.text.replace(/"/g,''),
-      decIn: inches.toFixed(6),
-      decMm: mm.toFixed(3)
+      roundedIn: inchesRounded,
+      roundedMm: mmRounded
     };
-
-    // No error currently; keep hook if you want later
-    elErr.style.display = 'none';
   }
 
   elVal.addEventListener('input', update);
