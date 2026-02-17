@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Decimal ↔ Fraction</title>
+
+  <!-- Nice-to-have for “Add to Home Screen” -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fraction">
+  <meta name="theme-color" content="#111111">
+
+  <style>
+    :root { color-scheme: light dark; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      max-width: 760px;
+      margin: 28px auto;
+      padding: 0 14px;
+      line-height: 1.25;
+    }
+    h1{ margin: 0 0 12px 0; font-size: 20px; opacity:.9; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input{
+      flex: 1;
+      min-width: 260px;
+      font-size: 20px;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(127,127,127,.35);
+      outline: none;
+    }
+    .denoms{ display:flex; gap:8px; flex-wrap:wrap; }
+    .btn{
+      font-size: 16px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(127,127,127,.35);
+      background: transparent;
+      cursor: pointer;
+      user-select: none;
+    }
+    .btn.active{ border-width:2px; }
+    .card{
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(127,127,127,.25);
+    }
+    .big{ font-size: 34px; font-weight: 700; letter-spacing: .2px; }
+    .meta{ margin-top:10px; display:grid; gap:6px; }
+    .line{ display:flex; justify-content:space-between; gap:14px; }
+    .k{ opacity:.75; }
+    .v{ font-variant-numeric: tabular-nums; }
+    .muted{ margin-top: 10px; opacity:.7; font-size: 13px; }
+    .err{ color:#d33; font-size: 14px; margin-top: 8px; }
+    .copyrow{ margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <h1>Decimal → Fraction (inches default; add “mm” to convert)</h1>
+
+  <div class="row">
+    <input id="val" inputmode="decimal" placeholder="Examples: 2.375   25.4mm   312.7 MM   1.234in" />
+    <div class="denoms" id="denoms"></div>
+  </div>
+
+  <div class="card">
+    <div id="out" class="big">—</div>
+
+    <div class="copyrow">
+      <button class="btn" id="copyFrac">Copy fraction</button>
+      <button class="btn" id="copyDecIn">Copy decimal in</button>
+      <button class="btn" id="copyDecMm">Copy decimal mm</button>
+    </div>
+
+    <div id="err" class="err" style="display:none;"></div>
+
+    <div class="meta">
+      <div class="line"><div class="k">Decimal inches (exact)</div><div class="v" id="decIn">—</div></div>
+      <div class="line"><div class="k">Decimal mm (exact)</div><div class="v" id="decMm">—</div></div>
+      <div class="line"><div class="k">Rounding error</div><div class="v" id="delta">—</div></div>
+    </div>
+
+    <div class="muted" id="note">
+      Tip: Type <code>mm</code> anywhere (case-insensitive) to treat the number as millimeters.
+      Denominator sets your tolerance (1/32, 1/64, etc).
+    </div>
+  </div>
+
+<script>
+  const elVal = document.getElementById('val');
+  const elOut = document.getElementById('out');
+  const elErr = document.getElementById('err');
+  const elDecIn = document.getElementById('decIn');
+  const elDecMm = document.getElementById('decMm');
+  const elDelta = document.getElementById('delta');
+  const elDenoms = document.getElementById('denoms');
+
+  const denoms = [16, 32, 64, 128];
+  let denom = 32;
+
+  function gcd(a, b){
+    a = Math.abs(a); b = Math.abs(b);
+    while (b) [a, b] = [b, a % b];
+    return a || 1;
+  }
+
+  function parseInput(raw){
+    const s = (raw || '').trim();
+    if (!s) return { ok:false, err:'Type a number.' };
+
+    const isMM = /mm/i.test(s);
+    const isIN = /in\b/i.test(s); // optional support
+
+    const m = s.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
+    if (!m) return { ok:false, err:'Could not find a number.' };
+
+    const num = Number(m[0]);
+    if (!Number.isFinite(num)) return { ok:false, err:'Invalid number.' };
+
+    let inches = num;
+    let source = 'in';
+    if (isMM && !isIN) { inches = num / 25.4; source = 'mm'; }
+    // if both mm and in appear, treat as inches to avoid surprises
+
+    return { ok:true, inches, source, rawNumber:num };
+  }
+
+  function formatMixedFractionFromInches(inches, denom){
+    const scaled = Math.round(inches * denom);
+    let whole = Math.trunc(scaled / denom);
+    let rem = Math.abs(scaled % denom);
+
+    if (rem === 0) return { text: `${whole}"`, rounded: whole };
+
+    const g = gcd(rem, denom);
+    const r = rem / g;
+    const d = denom / g;
+
+    const text = (whole === 0) ? `${r}/${d}"` : `${whole} ${r}/${d}"`;
+    const rounded = scaled / denom;
+    return { text, rounded };
+  }
+
+  function renderDenoms(){
+    elDenoms.innerHTML = '';
+    for (const d of denoms){
+      const b = document.createElement('button');
+      b.className = 'btn' + (d === denom ? ' active' : '');
+      b.textContent = `1/${d}`;
+      b.addEventListener('click', () => { denom = d; renderDenoms(); update(); });
+      elDenoms.appendChild(b);
+    }
+  }
+
+  async function copyText(t){
+    try { await navigator.clipboard.writeText(t); }
+    catch { /* ignore */ }
+  }
+
+  let last = { frac:'', decIn:'', decMm:'' };
+
+  document.getElementById('copyFrac').addEventListener('click', () => copyText(last.frac));
+  document.getElementById('copyDecIn').addEventListener('click', () => copyText(last.decIn));
+  document.getElementById('copyDecMm').addEventListener('click', () => copyText(last.decMm));
+
+  function update(){
+    const p = parseInput(elVal.value);
+
+    if (!p.ok){
+      elOut.textContent = '—';
+      elErr.style.display = 'none';
+      elDecIn.textContent = '—';
+      elDecMm.textContent = '—';
+      elDelta.textContent = '—';
+      last = { frac:'', decIn:'', decMm:'' };
+      return;
+    }
+
+    const inches = p.inches;
+    const mm = inches * 25.4;
+
+    const frac = formatMixedFractionFromInches(inches, denom);
+    elOut.textContent = frac.text;
+
+    const decIn = inches.toFixed(6) + ' in';
+    const decMm = mm.toFixed(3) + ' mm';
+
+    elDecIn.textContent = decIn;
+    elDecMm.textContent = decMm;
+
+    const deltaIn = frac.rounded - inches;
+    const deltaMm = deltaIn * 25.4;
+    const sign = deltaIn >= 0 ? '+' : '';
+    elDelta.textContent = `${sign}${deltaIn.toFixed(6)} in  (${sign}${deltaMm.toFixed(3)} mm)`;
+
+    last = {
+      frac: frac.text.replace(/"/g,''),
+      decIn: inches.toFixed(6),
+      decMm: mm.toFixed(3)
+    };
+
+    // Edge-case warning: both mm and in in the same string
+    const s = elVal.value || '';
+    const both = /mm/i.test(s) && /in\b/i.test(s);
+    if (both){
+      elErr.style.display = 'block';
+      elErr.textContent = 'Note: input contains both “mm” and “in”; treating as inches.';
+    } else {
+      elErr.style.display = 'none';
+    }
+  }
+
+  elVal.addEventListener('input', update);
+  renderDenoms();
+  update();
+</script>
+</body>
+</html>
