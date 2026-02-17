@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Decimal ↔ Fraction</title>
 
-  <!-- Nice-to-have for “Add to Home Screen” -->
+  <!-- iOS home-screen “app” niceties -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Fraction">
   <meta name="theme-color" content="#111111">
@@ -14,64 +14,115 @@
     :root { color-scheme: light dark; }
     body{
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      max-width: 760px;
-      margin: 28px auto;
-      padding: 0 14px;
-      line-height: 1.25;
+      max-width: 820px;
+      margin: 24px auto;
+      padding: 0 16px 28px;
+      line-height: 1.2;
+      -webkit-text-size-adjust: 100%;
     }
-    h1{ margin: 0 0 12px 0; font-size: 20px; opacity:.9; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    h1{
+      margin: 0 0 14px 0;
+      font-size: 22px;
+      opacity: .9;
+    }
+    .row{
+      display:flex;
+      gap: 12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
     input{
       flex: 1;
-      min-width: 260px;
-      font-size: 20px;
-      padding: 12px 12px;
-      border-radius: 12px;
+      min-width: 280px;
+      font-size: 22px;
+      padding: 14px 14px;
+      border-radius: 16px;
       border: 1px solid rgba(127,127,127,.35);
       outline: none;
     }
-    .denoms{ display:flex; gap:8px; flex-wrap:wrap; }
+    .group{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
     .btn{
-      font-size: 16px;
-      padding: 10px 12px;
-      border-radius: 12px;
+      font-size: 18px;
+      padding: 12px 14px;
+      border-radius: 16px;
       border: 1px solid rgba(127,127,127,.35);
       background: transparent;
       cursor: pointer;
       user-select: none;
+      touch-action: manipulation;
     }
-    .btn.active{ border-width:2px; }
+    .btn.active{
+      border-width: 2px;
+      font-weight: 700;
+    }
     .card{
-      margin-top: 14px;
-      padding: 14px;
-      border-radius: 14px;
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 18px;
       border: 1px solid rgba(127,127,127,.25);
     }
-    .big{ font-size: 34px; font-weight: 700; letter-spacing: .2px; }
-    .meta{ margin-top:10px; display:grid; gap:6px; }
-    .line{ display:flex; justify-content:space-between; gap:14px; }
+    .big{
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .copyrow{
+      margin-top: 12px;
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+    .meta{
+      margin-top: 14px;
+      display:grid;
+      gap: 10px;
+      font-size: 16px;
+    }
+    .line{
+      display:flex;
+      justify-content:space-between;
+      gap: 14px;
+    }
     .k{ opacity:.75; }
     .v{ font-variant-numeric: tabular-nums; }
-    .muted{ margin-top: 10px; opacity:.7; font-size: 13px; }
-    .err{ color:#d33; font-size: 14px; margin-top: 8px; }
-    .copyrow{ margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; }
+    .muted{
+      margin-top: 14px;
+      opacity:.7;
+      font-size: 14px;
+    }
+    .err{ color:#d33; font-size: 15px; margin-top: 10px; }
+    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 </head>
 <body>
-  <h1>Decimal → Fraction (inches default; add “mm” to convert)</h1>
+  <h1>Decimal → Fraction</h1>
 
   <div class="row">
-    <input id="val" inputmode="decimal" placeholder="Examples: 2.375   25.4mm   312.7 MM   1.234in" />
-    <div class="denoms" id="denoms"></div>
+    <input id="val" placeholder="Type a number… e.g. 2.375 or 25.4" autocomplete="off" />
+
+    <!-- Unit toggle -->
+    <div class="group" aria-label="Units">
+      <button class="btn active" id="uIn" type="button">IN</button>
+      <button class="btn" id="uMm" type="button">MM</button>
+    </div>
+
+    <!-- Denominator (tolerance) -->
+    <div class="group" id="denoms" aria-label="Tolerance"></div>
   </div>
 
   <div class="card">
     <div id="out" class="big">—</div>
 
     <div class="copyrow">
-      <button class="btn" id="copyFrac">Copy fraction</button>
-      <button class="btn" id="copyDecIn">Copy decimal in</button>
-      <button class="btn" id="copyDecMm">Copy decimal mm</button>
+      <button class="btn" id="copyFrac" type="button">Copy fraction</button>
+      <button class="btn" id="copyDecIn" type="button">Copy decimal in</button>
+      <button class="btn" id="copyDecMm" type="button">Copy decimal mm</button>
     </div>
 
     <div id="err" class="err" style="display:none;"></div>
@@ -82,23 +133,28 @@
       <div class="line"><div class="k">Rounding error</div><div class="v" id="delta">—</div></div>
     </div>
 
-    <div class="muted" id="note">
-      Tip: Type <code>mm</code> anywhere (case-insensitive) to treat the number as millimeters.
-      Denominator sets your tolerance (1/32, 1/64, etc).
+    <div class="muted">
+      Denominator sets tolerance (nearest 1/16, 1/32, 1/64, 1/128). Output is fractional inches.
     </div>
   </div>
 
 <script>
-  const elVal = document.getElementById('val');
-  const elOut = document.getElementById('out');
-  const elErr = document.getElementById('err');
+  const elVal   = document.getElementById('val');
+  const elOut   = document.getElementById('out');
+  const elErr   = document.getElementById('err');
   const elDecIn = document.getElementById('decIn');
   const elDecMm = document.getElementById('decMm');
   const elDelta = document.getElementById('delta');
   const elDenoms = document.getElementById('denoms');
 
+  const btnIn = document.getElementById('uIn');
+  const btnMm = document.getElementById('uMm');
+
   const denoms = [16, 32, 64, 128];
   let denom = 32;
+
+  // Units state: 'in' or 'mm'
+  let units = 'in';
 
   function gcd(a, b){
     a = Math.abs(a); b = Math.abs(b);
@@ -106,47 +162,58 @@
     return a || 1;
   }
 
-  function parseInput(raw){
+  function parseNumber(raw){
     const s = (raw || '').trim();
     if (!s) return { ok:false, err:'Type a number.' };
 
-    const isMM = /mm/i.test(s);
-    const isIN = /in\b/i.test(s); // optional support
-
-    const m = s.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
+    // allow commas/spaces casually
+    const cleaned = s.replace(/,/g,'');
+    const m = cleaned.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
     if (!m) return { ok:false, err:'Could not find a number.' };
 
     const num = Number(m[0]);
     if (!Number.isFinite(num)) return { ok:false, err:'Invalid number.' };
 
-    let inches = num;
-    let source = 'in';
-    if (isMM && !isIN) { inches = num / 25.4; source = 'mm'; }
-    // if both mm and in appear, treat as inches to avoid surprises
-
-    return { ok:true, inches, source, rawNumber:num };
+    return { ok:true, num };
   }
 
   function formatMixedFractionFromInches(inches, denom){
     const scaled = Math.round(inches * denom);
+    const rounded = scaled / denom;
+
     let whole = Math.trunc(scaled / denom);
     let rem = Math.abs(scaled % denom);
 
-    if (rem === 0) return { text: `${whole}"`, rounded: whole };
+    if (rem === 0) return { text: `${whole}"`, rounded };
 
     const g = gcd(rem, denom);
     const r = rem / g;
     const d = denom / g;
 
     const text = (whole === 0) ? `${r}/${d}"` : `${whole} ${r}/${d}"`;
-    const rounded = scaled / denom;
     return { text, rounded };
   }
+
+  function setUnits(next){
+    units = next;
+    if (units === 'in') {
+      btnIn.classList.add('active');
+      btnMm.classList.remove('active');
+    } else {
+      btnMm.classList.add('active');
+      btnIn.classList.remove('active');
+    }
+    update();
+  }
+
+  btnIn.addEventListener('click', () => setUnits('in'));
+  btnMm.addEventListener('click', () => setUnits('mm'));
 
   function renderDenoms(){
     elDenoms.innerHTML = '';
     for (const d of denoms){
       const b = document.createElement('button');
+      b.type = 'button';
       b.className = 'btn' + (d === denom ? ' active' : '');
       b.textContent = `1/${d}`;
       b.addEventListener('click', () => { denom = d; renderDenoms(); update(); });
@@ -156,7 +223,7 @@
 
   async function copyText(t){
     try { await navigator.clipboard.writeText(t); }
-    catch { /* ignore */ }
+    catch { /* iOS may block in some contexts */ }
   }
 
   let last = { frac:'', decIn:'', decMm:'' };
@@ -166,7 +233,7 @@
   document.getElementById('copyDecMm').addEventListener('click', () => copyText(last.decMm));
 
   function update(){
-    const p = parseInput(elVal.value);
+    const p = parseNumber(elVal.value);
 
     if (!p.ok){
       elOut.textContent = '—';
@@ -178,41 +245,34 @@
       return;
     }
 
-    const inches = p.inches;
+    const raw = p.num;
+    const inches = (units === 'mm') ? (raw / 25.4) : raw;
     const mm = inches * 25.4;
 
     const frac = formatMixedFractionFromInches(inches, denom);
+
     elOut.textContent = frac.text;
-
-    const decIn = inches.toFixed(6) + ' in';
-    const decMm = mm.toFixed(3) + ' mm';
-
-    elDecIn.textContent = decIn;
-    elDecMm.textContent = decMm;
+    elDecIn.textContent = inches.toFixed(6) + ' in';
+    elDecMm.textContent = mm.toFixed(3) + ' mm';
 
     const deltaIn = frac.rounded - inches;
     const deltaMm = deltaIn * 25.4;
     const sign = deltaIn >= 0 ? '+' : '';
     elDelta.textContent = `${sign}${deltaIn.toFixed(6)} in  (${sign}${deltaMm.toFixed(3)} mm)`;
 
+    // Values to copy (no quotes)
     last = {
       frac: frac.text.replace(/"/g,''),
       decIn: inches.toFixed(6),
       decMm: mm.toFixed(3)
     };
 
-    // Edge-case warning: both mm and in in the same string
-    const s = elVal.value || '';
-    const both = /mm/i.test(s) && /in\b/i.test(s);
-    if (both){
-      elErr.style.display = 'block';
-      elErr.textContent = 'Note: input contains both “mm” and “in”; treating as inches.';
-    } else {
-      elErr.style.display = 'none';
-    }
+    // No error currently; keep hook if you want later
+    elErr.style.display = 'none';
   }
 
   elVal.addEventListener('input', update);
+
   renderDenoms();
   update();
 </script>
