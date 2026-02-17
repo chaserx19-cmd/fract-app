@@ -27,14 +27,16 @@
       flex-wrap:wrap;
       align-items:center;
     }
+
     input{
       flex: 1;
       min-width: 280px;
-      font-size: 22px;
-      padding: 14px 14px;
-      border-radius: 16px;
+      font-size: 24px;
+      padding: 16px 16px;
+      border-radius: 18px;
       border: 1px solid rgba(127,127,127,.35);
       outline: none;
+      font-variant-numeric: tabular-nums;
     }
 
     .group{ display:flex; gap: 10px; flex-wrap:wrap; align-items:center; }
@@ -49,22 +51,21 @@
       user-select: none;
       touch-action: manipulation;
       transition: background-color .12s ease, border-color .12s ease, transform .06s ease;
+      font-weight: 700;
     }
     .btn:active{ transform: scale(0.98); }
 
-    /* Full-button selected state */
+    /* High-contrast selected state */
     .btn.active{
-      border-width: 2px;
-      font-weight: 800;
-      background: rgba(127,127,127,.22);
-      border-color: rgba(127,127,127,.55);
+      border-color: rgba(255,255,255,.75);
+      background: rgba(255,255,255,.95);
+      color: #000;
     }
-
-    /* Make selected state more obvious in light mode */
     @media (prefers-color-scheme: light) {
       .btn.active{
-        background: rgba(0,0,0,.10);
-        border-color: rgba(0,0,0,.25);
+        border-color: rgba(0,0,0,.85);
+        background: rgba(0,0,0,.92);
+        color: #fff;
       }
     }
 
@@ -75,13 +76,13 @@
       border: 1px solid rgba(127,127,127,.25);
     }
     .big{
-      font-size: 40px;
-      font-weight: 800;
+      font-size: 44px;
+      font-weight: 900;
       letter-spacing: .2px;
       font-variant-numeric: tabular-nums;
     }
     .copyrow{
-      margin-top: 12px;
+      margin-top: 14px;
       display:flex;
       gap: 10px;
       flex-wrap:wrap;
@@ -95,14 +96,26 @@
     .line{ display:flex; justify-content:space-between; gap: 14px; }
     .k{ opacity:.75; }
     .v{ font-variant-numeric: tabular-nums; }
-    .muted{ margin-top: 14px; opacity:.7; font-size: 14px; }
+
+    /* Make buttons slightly larger on iPhone */
+    @media (max-width: 520px){
+      .btn{ font-size: 18px; padding: 14px 14px; border-radius: 18px; }
+      input{ font-size: 26px; }
+      .big{ font-size: 46px; }
+    }
   </style>
 </head>
 <body>
   <h1>Decimal → Fraction</h1>
 
   <div class="row">
-    <input id="val" placeholder="Type a number… e.g. 14.611 or 25.4" autocomplete="off" />
+    <!-- inputmode decimal forces the numeric keypad on iOS -->
+    <input
+      id="val"
+      inputmode="decimal"
+      placeholder="e.g. 14.611"
+      autocomplete="off"
+    />
 
     <div class="group" aria-label="Units">
       <button class="btn active" id="uIn" type="button">IN</button>
@@ -117,19 +130,14 @@
 
     <div class="copyrow">
       <button class="btn" id="copyFrac" type="button">Copy fraction</button>
-      <button class="btn" id="copyDecIn" type="button">Copy decimal in (rounded)</button>
-      <button class="btn" id="copyDecMm" type="button">Copy decimal mm (rounded)</button>
+      <button class="btn" id="copyDecIn" type="button">Copy in (rounded)</button>
+      <button class="btn" id="copyDecMm" type="button">Copy mm (rounded)</button>
     </div>
 
     <div class="meta">
       <div class="line"><div class="k">Decimal inches (exact)</div><div class="v" id="decIn">—</div></div>
       <div class="line"><div class="k">Decimal mm (exact)</div><div class="v" id="decMm">—</div></div>
       <div class="line"><div class="k">Rounding error</div><div class="v" id="delta">—</div></div>
-    </div>
-
-    <div class="muted">
-      Denominator sets tolerance (nearest 1/16, 1/32, 1/64, 1/128). Output is fractional inches.
-      Copy buttons use <b>3 decimals</b>. Decimal copy uses the <b>rounded</b> value that matches the fraction.
     </div>
   </div>
 
@@ -146,7 +154,7 @@
 
   const denoms = [16, 32, 64, 128];
   let denom = 32;
-  let units = 'in'; // 'in' or 'mm'
+  let units = 'in';
 
   function gcd(a, b){
     a = Math.abs(a); b = Math.abs(b);
@@ -156,12 +164,12 @@
 
   function parseNumber(raw){
     const s = (raw || '').trim();
-    if (!s) return { ok:false, err:'Type a number.' };
+    if (!s) return { ok:false };
     const cleaned = s.replace(/,/g,'');
     const m = cleaned.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
-    if (!m) return { ok:false, err:'Could not find a number.' };
+    if (!m) return { ok:false };
     const num = Number(m[0]);
-    if (!Number.isFinite(num)) return { ok:false, err:'Invalid number.' };
+    if (!Number.isFinite(num)) return { ok:false };
     return { ok:true, num };
   }
 
@@ -208,21 +216,16 @@
     }
   }
 
-  // Copy helpers
   async function copyText(t){
     try { await navigator.clipboard.writeText(t); } catch {}
   }
+
   function toFixed3(n){
-    // Avoid "-0.000"
-    const v = Number(n.toFixed(3));
+    const v = Number(n.toFixed(3));   // prevents "-0.000"
     return v.toFixed(3);
   }
 
-  let last = {
-    frac: '',
-    roundedIn: NaN,
-    roundedMm: NaN
-  };
+  let last = { frac:'', roundedIn: NaN, roundedMm: NaN };
 
   document.getElementById('copyFrac').addEventListener('click', () => copyText(last.frac));
   document.getElementById('copyDecIn').addEventListener('click', () => {
@@ -261,7 +264,6 @@
     const sign = deltaIn >= 0 ? '+' : '';
     elDelta.textContent = `${sign}${deltaIn.toFixed(6)} in  (${sign}${deltaMm.toFixed(3)} mm)`;
 
-    // What gets copied:
     last = {
       frac: frac.text.replace(/"/g,''),
       roundedIn: inchesRounded,
